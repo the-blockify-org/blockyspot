@@ -16,6 +16,7 @@ use std::sync::Arc;
 const CACHE: &str = ".cache";
 const CACHE_FILES: &str = ".cache/files";
 
+#[derive(Default)]
 pub struct SpotifyClient {
     session: Option<Session>,
     player: Option<Arc<Player>>,
@@ -26,13 +27,7 @@ pub struct SpotifyClient {
 
 impl SpotifyClient {
     pub fn new() -> Self {
-        Self {
-            session: None,
-            player: None,
-            spirc: None,
-            spirc_task: None,
-            device_name: String::new(),
-        }
+        Self::default()
     }
 
     pub async fn initialize(&mut self, token: String, device_name: String) -> Result<()> {

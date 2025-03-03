@@ -5,15 +5,14 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+#[derive(Default)]
 pub struct SpotifyServer {
     clients: Arc<Mutex<HashMap<String, SpotifyClient>>>,
 }
 
 impl SpotifyServer {
     pub fn new() -> Self {
-        Self {
-            clients: Arc::new(Mutex::new(HashMap::new())),
-        }
+        Self::default()
     }
 
     pub async fn handle_command(&self, command: Command) -> CommandResponse {
