@@ -20,13 +20,23 @@ impl SpotifyServer {
         let mut clients = self.clients.lock().await;
 
         match command {
-            Command::Connect { token, device_id, device_name } => {
+            Command::Connect {
+                token,
+                device_id,
+                device_name,
+            } => {
                 if clients.contains_key(&device_id) {
                     return CommandResponse::error("Device ID already exists");
                 }
 
                 let mut client = SpotifyClient::new();
-                match client.initialize(token, device_name.unwrap_or_else(|| format!("Blockyspot {}", device_id))).await {
+                match client
+                    .initialize(
+                        token,
+                        device_name.unwrap_or_else(|| format!("Blockyspot {}", device_id)),
+                    )
+                    .await
+                {
                     Ok(_) => {
                         clients.insert(device_id.clone(), client);
                         CommandResponse::success("Connected to Spotify", None)
@@ -43,7 +53,10 @@ impl SpotifyServer {
                     CommandResponse::error("Device not found")
                 }
             }
-            Command::Play { device_id, track_id } => {
+            Command::Play {
+                device_id,
+                track_id,
+            } => {
                 if let Some(client) = clients.get_mut(&device_id) {
                     match client.play_track(track_id) {
                         Ok(_) => CommandResponse::success("Playing track", None),

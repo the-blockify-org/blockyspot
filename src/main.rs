@@ -8,7 +8,7 @@ mod commands;
 mod server;
 mod spotify;
 
-use server::{process_command, SpotifyServer};
+use server::{SpotifyServer, process_command};
 
 #[tokio::main]
 async fn main() -> Result<()> {

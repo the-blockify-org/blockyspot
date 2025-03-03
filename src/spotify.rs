@@ -1,9 +1,9 @@
 use anyhow::Result;
+use librespot::connect::{ConnectConfig, LoadRequest, LoadRequestOptions, Spirc};
 use librespot::core::authentication::Credentials;
 use librespot::core::cache::Cache;
 use librespot::core::config::SessionConfig;
 use librespot::core::session::Session;
-use librespot::connect::{ConnectConfig, LoadRequest, LoadRequestOptions, Spirc};
 use librespot::playback::{
     audio_backend,
     config::{AudioFormat, PlayerConfig},
@@ -93,10 +93,8 @@ impl SpotifyClient {
     pub fn play_track(&mut self, track_id: String) -> Result<()> {
         if let Some(spirc) = &self.spirc {
             let options = LoadRequestOptions::default();
-            let request = LoadRequest::from_context_uri(
-                format!("spotify:track:{}", track_id),
-                options
-            );
+            let request =
+                LoadRequest::from_context_uri(format!("spotify:track:{}", track_id), options);
             spirc.activate()?;
             spirc.load(request)?;
             spirc.play()?;
@@ -137,4 +135,4 @@ impl SpotifyClient {
     // - Getting current track information
     // - Managing the audio stream
     // - Handling player events
-} 
+}
