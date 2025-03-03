@@ -94,7 +94,7 @@ impl SpotifyClient {
         if let Some(spirc) = &self.spirc {
             let options = LoadRequestOptions::default();
             let request =
-                LoadRequest::from_context_uri(format!("spotify:track:{}", track_id), options);
+                LoadRequest::from_context_uri(format!("spotify:track:{track_id}"), options);
             spirc.activate()?;
             spirc.load(request)?;
             spirc.play()?;

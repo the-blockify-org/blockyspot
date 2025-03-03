@@ -33,7 +33,7 @@ impl SpotifyServer {
                 match client
                     .initialize(
                         token,
-                        device_name.unwrap_or_else(|| format!("Blockyspot {}", device_id)),
+                        device_name.unwrap_or_else(|| format!("Blockyspot {device_id}")),
                     )
                     .await
                 {
@@ -41,7 +41,7 @@ impl SpotifyServer {
                         clients.insert(device_id.clone(), client);
                         CommandResponse::success("Connected to Spotify", None)
                     }
-                    Err(e) => CommandResponse::error(&format!("Failed to connect: {}", e)),
+                    Err(e) => CommandResponse::error(&format!("Failed to connect: {e}")),
                 }
             }
             Command::Disconnect { device_id } => {
@@ -60,7 +60,7 @@ impl SpotifyServer {
                 if let Some(client) = clients.get_mut(&device_id) {
                     match client.play_track(track_id) {
                         Ok(_) => CommandResponse::success("Playing track", None),
-                        Err(e) => CommandResponse::error(&format!("Failed to play track: {}", e)),
+                        Err(e) => CommandResponse::error(&format!("Failed to play track: {e}")),
                     }
                 } else {
                     CommandResponse::error("Device not found")
@@ -70,7 +70,7 @@ impl SpotifyServer {
                 if let Some(client) = clients.get_mut(&device_id) {
                     match client.pause() {
                         Ok(_) => CommandResponse::success("Playback paused", None),
-                        Err(e) => CommandResponse::error(&format!("Failed to pause: {}", e)),
+                        Err(e) => CommandResponse::error(&format!("Failed to pause: {e}")),
                     }
                 } else {
                     CommandResponse::error("Device not found")
@@ -80,7 +80,7 @@ impl SpotifyServer {
                 if let Some(client) = clients.get_mut(&device_id) {
                     match client.resume() {
                         Ok(_) => CommandResponse::success("Playback resumed", None),
-                        Err(e) => CommandResponse::error(&format!("Failed to resume: {}", e)),
+                        Err(e) => CommandResponse::error(&format!("Failed to resume: {e}")),
                     }
                 } else {
                     CommandResponse::error("Device not found")
@@ -90,7 +90,7 @@ impl SpotifyServer {
                 if let Some(client) = clients.get_mut(&device_id) {
                     match client.stop_playback() {
                         Ok(_) => CommandResponse::success("Playback stopped", None),
-                        Err(e) => CommandResponse::error(&format!("Failed to stop: {}", e)),
+                        Err(e) => CommandResponse::error(&format!("Failed to stop: {e}")),
                     }
                 } else {
                     CommandResponse::error("Device not found")
@@ -111,12 +111,12 @@ impl SpotifyServer {
 pub async fn process_command(command_str: &str, server: &SpotifyServer) -> CommandResponse {
     match serde_json::from_str::<Command>(command_str) {
         Ok(command) => {
-            info!("Processing command: {:?}", command);
+            info!("Processing command: {command:?}");
             server.handle_command(command).await
         }
         Err(e) => {
-            error!("Failed to parse command: {}", e);
-            CommandResponse::error(&format!("Invalid command format: {}", e))
+            error!("Failed to parse command: {e}");
+            CommandResponse::error(&format!("Invalid command format: {e}"))
         }
     }
 }
