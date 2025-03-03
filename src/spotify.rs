@@ -12,7 +12,6 @@ use librespot::playback::{
     player::Player,
 };
 use std::sync::Arc;
-use tokio::sync::Mutex;
 
 const CACHE: &str = ".cache";
 const CACHE_FILES: &str = ".cache/files";
@@ -47,7 +46,6 @@ impl SpotifyClient {
         let player_config = PlayerConfig::default();
         let audio_format = AudioFormat::default();
         let mixer_config = MixerConfig::default();
-        let request_options = LoadRequestOptions::default();
 
         let sink_builder = audio_backend::find(None).unwrap();
         let mixer_builder = mixer::find(None).unwrap();
