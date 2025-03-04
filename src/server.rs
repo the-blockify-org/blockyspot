@@ -47,9 +47,12 @@ impl SpotifyServer {
             }
             Command::Disconnect { device_id } => {
                 if let Some(client) = clients.get_mut(device_id) {
-                    client.stop_playback();
-                    clients.remove(device_id);
-                    CommandResponse::success("Disconnected from Spotify", None)
+                    if let Err(e) = client.stop_playback() {
+                        CommandResponse::error(format!("Failed to stop playback: {e}"))
+                    } else {
+                        clients.remove(device_id);
+                        CommandResponse::success("Disconnected from Spotify", None)
+                    }
                 } else {
                     CommandResponse::error("Device not found")
                 }
