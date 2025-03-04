@@ -30,7 +30,11 @@ impl SpotifyClient {
         Self::default()
     }
 
-    pub async fn initialize(&mut self, token: String, device_name: String) -> Result<()> {
+    pub async fn initialize(
+        &mut self,
+        token: impl Into<String>,
+        device_name: String,
+    ) -> Result<()> {
         self.device_name = device_name.clone();
 
         let connect_config = ConnectConfig {
@@ -49,7 +53,7 @@ impl SpotifyClient {
         let cache = Cache::new(Some(CACHE), Some(CACHE), Some(CACHE_FILES), None)?;
 
         // Create credentials from token
-        let credentials = Credentials::with_access_token(&token);
+        let credentials = Credentials::with_access_token(token);
 
         let session = Session::new(session_config, Some(cache));
         let mixer = mixer_builder(mixer_config);
@@ -83,7 +87,9 @@ impl SpotifyClient {
         Ok(())
     }
 
-    pub fn play_track(&mut self, track_id: String) -> Result<()> {
+    pub fn play_track(&self, track_id: impl AsRef<str>) -> Result<()> {
+        let track_id = track_id.as_ref();
+
         if let Some(spirc) = &self.spirc {
             let options = LoadRequestOptions::default();
             let request =
@@ -97,7 +103,7 @@ impl SpotifyClient {
         }
     }
 
-    pub fn pause(&mut self) -> Result<()> {
+    pub fn pause(&self) -> Result<()> {
         if let Some(spirc) = &self.spirc {
             spirc.pause()?;
             Ok(())
@@ -106,7 +112,7 @@ impl SpotifyClient {
         }
     }
 
-    pub fn resume(&mut self) -> Result<()> {
+    pub fn resume(&self) -> Result<()> {
         if let Some(spirc) = &self.spirc {
             spirc.play()?;
             Ok(())
@@ -115,7 +121,7 @@ impl SpotifyClient {
         }
     }
 
-    pub fn stop_playback(&mut self) -> Result<()> {
+    pub fn stop_playback(&self) -> Result<()> {
         if let Some(spirc) = &self.spirc {
             spirc.shutdown()?;
             Ok(())
