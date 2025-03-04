@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 #[derive(Debug, Deserialize)]
 pub enum Command {
@@ -37,7 +36,7 @@ pub struct CommandResponse {
 }
 
 impl CommandResponse {
-    pub fn success(message: &str, data: Option<serde_json::Value>) -> Self {
+    pub fn success(message: impl ToString, data: Option<serde_json::Value>) -> Self {
         Self {
             success: true,
             message: message.to_string(),
@@ -45,7 +44,7 @@ impl CommandResponse {
         }
     }
 
-    pub fn error(message: &str) -> Self {
+    pub fn error(message: impl ToString) -> Self {
         Self {
             success: false,
             message: message.to_string(),

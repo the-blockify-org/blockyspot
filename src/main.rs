@@ -8,7 +8,7 @@ mod commands;
 mod server;
 mod spotify;
 
-use server::{process_command, SpotifyServer};
+use server::{SpotifyServer, process_command};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -26,16 +26,16 @@ async fn main() -> Result<()> {
     loop {
         match listener.accept().await {
             Ok((socket, addr)) => {
-                info!("New client connected: {}", addr);
+                info!("New client connected: {addr}");
                 let server = server.clone();
                 tokio::spawn(async move {
                     if let Err(e) = handle_connection(socket, server).await {
-                        error!("Error handling connection: {}", e);
+                        error!("Error handling connection: {e}");
                     }
                 });
             }
             Err(e) => {
-                error!("Failed to accept connection: {}", e);
+                error!("Failed to accept connection: {e}");
             }
         }
     }

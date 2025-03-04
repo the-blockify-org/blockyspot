@@ -1,9 +1,9 @@
 use anyhow::Result;
+use librespot::connect::{ConnectConfig, LoadRequest, LoadRequestOptions, Spirc};
 use librespot::core::authentication::Credentials;
 use librespot::core::cache::Cache;
 use librespot::core::config::SessionConfig;
 use librespot::core::session::Session;
-use librespot::connect::{ConnectConfig, LoadRequest, LoadRequestOptions, Spirc};
 use librespot::playback::{
     audio_backend,
     config::{AudioFormat, PlayerConfig},
@@ -12,11 +12,11 @@ use librespot::playback::{
     player::Player,
 };
 use std::sync::Arc;
-use tokio::sync::Mutex;
 
 const CACHE: &str = ".cache";
 const CACHE_FILES: &str = ".cache/files";
 
+#[derive(Default)]
 pub struct SpotifyClient {
     session: Option<Session>,
     player: Option<Arc<Player>>,
@@ -27,16 +27,14 @@ pub struct SpotifyClient {
 
 impl SpotifyClient {
     pub fn new() -> Self {
-        Self {
-            session: None,
-            player: None,
-            spirc: None,
-            spirc_task: None,
-            device_name: String::new(),
-        }
+        Self::default()
     }
 
-    pub async fn initialize(&mut self, token: String, device_name: String) -> Result<()> {
+    pub async fn initialize(
+        &mut self,
+        token: impl Into<String>,
+        device_name: String,
+    ) -> Result<()> {
         self.device_name = device_name.clone();
 
         let connect_config = ConnectConfig {
@@ -47,7 +45,6 @@ impl SpotifyClient {
         let player_config = PlayerConfig::default();
         let audio_format = AudioFormat::default();
         let mixer_config = MixerConfig::default();
-        let request_options = LoadRequestOptions::default();
 
         let sink_builder = audio_backend::find(None).unwrap();
         let mixer_builder = mixer::find(None).unwrap();
@@ -56,7 +53,7 @@ impl SpotifyClient {
         let cache = Cache::new(Some(CACHE), Some(CACHE), Some(CACHE_FILES), None)?;
 
         // Create credentials from token
-        let credentials = Credentials::with_access_token(&token);
+        let credentials = Credentials::with_access_token(token);
 
         let session = Session::new(session_config, Some(cache));
         let mixer = mixer_builder(mixer_config);
@@ -90,13 +87,13 @@ impl SpotifyClient {
         Ok(())
     }
 
-    pub fn play_track(&mut self, track_id: String) -> Result<()> {
+    pub fn play_track(&self, track_id: impl AsRef<str>) -> Result<()> {
+        let track_id = track_id.as_ref();
+
         if let Some(spirc) = &self.spirc {
             let options = LoadRequestOptions::default();
-            let request = LoadRequest::from_context_uri(
-                format!("spotify:track:{}", track_id),
-                options
-            );
+            let request =
+                LoadRequest::from_context_uri(format!("spotify:track:{track_id}"), options);
             spirc.activate()?;
             spirc.load(request)?;
             spirc.play()?;
@@ -106,7 +103,7 @@ impl SpotifyClient {
         }
     }
 
-    pub fn pause(&mut self) -> Result<()> {
+    pub fn pause(&self) -> Result<()> {
         if let Some(spirc) = &self.spirc {
             spirc.pause()?;
             Ok(())
@@ -115,7 +112,7 @@ impl SpotifyClient {
         }
     }
 
-    pub fn resume(&mut self) -> Result<()> {
+    pub fn resume(&self) -> Result<()> {
         if let Some(spirc) = &self.spirc {
             spirc.play()?;
             Ok(())
@@ -124,7 +121,7 @@ impl SpotifyClient {
         }
     }
 
-    pub fn stop_playback(&mut self) -> Result<()> {
+    pub fn stop_playback(&self) -> Result<()> {
         if let Some(spirc) = &self.spirc {
             spirc.shutdown()?;
             Ok(())
@@ -137,4 +134,4 @@ impl SpotifyClient {
     // - Getting current track information
     // - Managing the audio stream
     // - Handling player events
-} 
+}
