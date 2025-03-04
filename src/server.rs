@@ -38,7 +38,7 @@ impl SpotifyServer {
                     )
                     .await
                 {
-                    Ok(_) => {
+                    Ok(()) => {
                         clients.insert(device_id.clone(), client);
                         CommandResponse::success("Connected to Spotify", None)
                     }
@@ -63,7 +63,7 @@ impl SpotifyServer {
             } => {
                 if let Some(client) = clients.get_mut(device_id) {
                     match client.play_track(track_id) {
-                        Ok(_) => CommandResponse::success("Playing track", None),
+                        Ok(()) => CommandResponse::success("Playing track", None),
                         Err(e) => CommandResponse::error(format!("Failed to play track: {e}")),
                     }
                 } else {
@@ -73,7 +73,7 @@ impl SpotifyServer {
             Command::Pause { device_id } => {
                 if let Some(client) = clients.get_mut(device_id) {
                     match client.pause() {
-                        Ok(_) => CommandResponse::success("Playback paused", None),
+                        Ok(()) => CommandResponse::success("Playback paused", None),
                         Err(e) => CommandResponse::error(format!("Failed to pause: {e}")),
                     }
                 } else {
@@ -83,7 +83,7 @@ impl SpotifyServer {
             Command::Resume { device_id } => {
                 if let Some(client) = clients.get_mut(device_id) {
                     match client.resume() {
-                        Ok(_) => CommandResponse::success("Playback resumed", None),
+                        Ok(()) => CommandResponse::success("Playback resumed", None),
                         Err(e) => CommandResponse::error(format!("Failed to resume: {e}")),
                     }
                 } else {
@@ -93,7 +93,7 @@ impl SpotifyServer {
             Command::Stop { device_id } => {
                 if let Some(client) = clients.get_mut(device_id) {
                     match client.stop_playback() {
-                        Ok(_) => CommandResponse::success("Playback stopped", None),
+                        Ok(()) => CommandResponse::success("Playback stopped", None),
                         Err(e) => CommandResponse::error(format!("Failed to stop: {e}")),
                     }
                 } else {
