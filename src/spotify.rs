@@ -11,12 +11,14 @@ use librespot::playback::{
     mixer::MixerConfig,
     player::Player,
     player::SinkStatus,
+    player::PlayerEvent,
 };
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use warp::ws::Message;
 use crate::server::WsResult;
 use serde_json;
+use tokio::task;
 
 const CACHE: &str = ".cache";
 const CACHE_FILES: &str = ".cache/files";
@@ -29,6 +31,7 @@ pub struct SpotifyClient {
     spirc_task: Option<tokio::task::JoinHandle<()>>,
     device_name: String,
     ws_sender: Option<mpsc::UnboundedSender<WsResult<Message>>>,
+    player_event_task: Option<task::JoinHandle<()>>,
 }
 
 impl SpotifyClient {
@@ -71,7 +74,7 @@ impl SpotifyClient {
             move || sink_builder(None, audio_format),
         );
 
-        // Set up event callbacks for the player
+        // Set up sink event callbacks
         let ws_sender_clone = self.ws_sender.clone();
         player.set_sink_event_callback(Some(Box::new(move |event: SinkStatus| {
             if let Some(sender) = &ws_sender_clone {
@@ -87,6 +90,66 @@ impl SpotifyClient {
                 }
             }
         })));
+
+        // Set up player event channel
+        let mut event_channel = player.get_player_event_channel();
+        let ws_sender_clone = self.ws_sender.clone();
+        
+        // Spawn a task to handle player events
+        let player_event_task = tokio::spawn(async move {
+            while let Some(event) = event_channel.recv().await {
+                if let Some(sender) = &ws_sender_clone {
+                    let event_json = serde_json::json!({
+                        "type": "player_event",
+                        "data": {
+                            "event_type": format!("{:?}", event),
+                            "details": match &event {
+                                PlayerEvent::Playing { play_request_id, track_id, position_ms } => {
+                                    serde_json::json!({
+                                        "play_request_id": play_request_id,
+                                        "track_id": track_id.to_string(),
+                                        "position_ms": position_ms
+                                    })
+                                },
+                                PlayerEvent::Paused { play_request_id, track_id, position_ms } => {
+                                    serde_json::json!({
+                                        "play_request_id": play_request_id,
+                                        "track_id": track_id.to_string(),
+                                        "position_ms": position_ms
+                                    })
+                                },
+                                PlayerEvent::Stopped { play_request_id, track_id } => {
+                                    serde_json::json!({
+                                        "play_request_id": play_request_id,
+                                        "track_id": track_id.to_string()
+                                    })
+                                },
+                                PlayerEvent::Loading { play_request_id, track_id, position_ms } => {
+                                    serde_json::json!({
+                                        "play_request_id": play_request_id,
+                                        "track_id": track_id.to_string(),
+                                        "position_ms": position_ms
+                                    })
+                                },
+                                PlayerEvent::EndOfTrack { play_request_id, track_id } => {
+                                    serde_json::json!({
+                                        "play_request_id": play_request_id,
+                                        "track_id": track_id.to_string()
+                                    })
+                                },
+                                _ => serde_json::json!(null)
+                            }
+                        }
+                    });
+
+                    if let Ok(msg) = serde_json::to_string(&event_json) {
+                        let _ = sender.send(Ok(Message::text(msg)));
+                    }
+                }
+            }
+        });
+
+        self.player_event_task = Some(player_event_task);
 
         let (spirc, spirc_task) = Spirc::new(
             connect_config,
@@ -147,6 +210,10 @@ impl SpotifyClient {
     pub fn stop_playback(&self) -> Result<()> {
         if let Some(spirc) = &self.spirc {
             spirc.shutdown()?;
+            // Cancel the player event task when stopping playback
+            if let Some(task) = &self.player_event_task {
+                task.abort();
+            }
             Ok(())
         } else {
             anyhow::bail!("Spotify Connect device not initialized")

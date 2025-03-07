@@ -13,10 +13,21 @@ async def send_command(websocket, command):
 
 async def handle_message(message):
     data = json.loads(message)
-    if "type" in data and data["type"] == "sink_event":
-        status = data["data"]["status"]
-        logger.info(f"🔊 Sink Event: {status}")
+    if "type" in data:
+        if data["type"] == "sink_event":
+            status = data["data"]["status"]
+            logger.info(f"🔊 Sink Event: {status}")
+        elif data["type"] == "player_event":
+            event_type = data["data"]["event_type"]
+            details = data["data"]["details"]
+            if details:
+                logger.info(f"🎵 Player Event: {event_type}")
+                for key, value in details.items():
+                    logger.info(f"  └─ {key}: {value}")
+            else:
+                logger.info(f"🎵 Player Event: {event_type}")
     else:
+        # This is a command response
         print("\nServer response:", json.dumps(data, indent=2))
 
 async def listen_for_messages(websocket):
