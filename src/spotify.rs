@@ -5,7 +5,6 @@ use librespot::core::cache::Cache;
 use librespot::core::config::SessionConfig;
 use librespot::core::session::Session;
 use librespot::playback::{
-    audio_backend,
     config::{AudioFormat, PlayerConfig},
     mixer,
     mixer::MixerConfig,
@@ -19,6 +18,7 @@ use warp::ws::Message;
 use crate::server::WsResult;
 use serde_json;
 use tokio::task;
+use crate::ws_sink::create_ws_sink;
 
 const CACHE: &str = ".cache";
 const CACHE_FILES: &str = ".cache/files";
@@ -46,6 +46,7 @@ impl SpotifyClient {
         ws_sender: mpsc::UnboundedSender<WsResult<Message>>,
     ) -> Result<()> {
         self.device_name = device_name.clone();
+        let ws_sender_clone = ws_sender.clone();
         self.ws_sender = Some(ws_sender);
 
         let connect_config = ConnectConfig {
@@ -57,7 +58,9 @@ impl SpotifyClient {
         let audio_format = AudioFormat::default();
         let mixer_config = MixerConfig::default();
 
-        let sink_builder = audio_backend::find(None).unwrap();
+        let sink_builder = move || {
+            create_ws_sink(ws_sender_clone.clone(), audio_format)
+        };
         let mixer_builder = mixer::find(None).unwrap();
 
         let cache = Cache::new(Some(CACHE), Some(CACHE), Some(CACHE_FILES), None)?;
@@ -71,7 +74,7 @@ impl SpotifyClient {
             player_config,
             session.clone(),
             mixer.get_soft_volume(),
-            move || sink_builder(None, audio_format),
+            sink_builder,
         );
 
         // Set up sink event callbacks

@@ -4,6 +4,7 @@ use log::info;
 mod commands;
 mod server;
 mod spotify;
+mod ws_sink;
 
 use server::SpotifyServer;
 
