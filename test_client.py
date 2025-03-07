@@ -10,9 +10,22 @@ logger = logging.getLogger(__name__)
 async def send_command(websocket, command):
     logger.debug(f"Sending command: {json.dumps(command)}")
     await websocket.send(json.dumps(command))
-    response = await websocket.recv()
-    logger.debug(f"Received response: {response}")
-    return json.loads(response)
+
+async def handle_message(message):
+    data = json.loads(message)
+    if "type" in data and data["type"] == "sink_event":
+        status = data["data"]["status"]
+        logger.info(f"🔊 Sink Event: {status}")
+    else:
+        print("\nServer response:", json.dumps(data, indent=2))
+
+async def listen_for_messages(websocket):
+    try:
+        while True:
+            message = await websocket.recv()
+            await handle_message(message)
+    except Exception as e:
+        logger.error(f"Message listener error: {e}")
 
 async def main():
     uri = "ws://localhost:8888/ws"
@@ -25,6 +38,8 @@ async def main():
             current_device_id = connection_data["device_id"]
             logger.info(f"Received device ID: {current_device_id}")
 
+            message_listener = asyncio.create_task(listen_for_messages(websocket))
+
             while True:
                 print("\nAvailable commands:")
                 print("1. Connect to Spotify (requires token)")
@@ -35,11 +50,20 @@ async def main():
                 print("6. Get current track")
                 print("7. Exit")
                 
-                choice = input("\nEnter command number: ")
-                
+                try:
+                    choice = await asyncio.get_event_loop().run_in_executor(
+                        None, lambda: input("\nEnter command number: ")
+                    )
+                except EOFError:
+                    break
+
                 if choice == '1':
-                    token = input("Enter your Spotify token: ")
-                    device_name = input("Enter device name (or press Enter for default): ").strip()
+                    token = await asyncio.get_event_loop().run_in_executor(
+                        None, lambda: input("Enter your Spotify token: ")
+                    )
+                    device_name = await asyncio.get_event_loop().run_in_executor(
+                        None, lambda: input("Enter device name (or press Enter for default): ").strip()
+                    )
                     cmd = {
                         "Connect": {
                             "token": token,
@@ -48,7 +72,9 @@ async def main():
                         }
                     }
                 elif choice == '2':
-                    track_id = input("Enter track ID (base62 format): ")
+                    track_id = await asyncio.get_event_loop().run_in_executor(
+                        None, lambda: input("Enter track ID (base62 format): ")
+                    )
                     cmd = {
                         "Play": {
                             "device_id": current_device_id,
@@ -87,11 +113,16 @@ async def main():
                 
                 try:
                     logger.info(f"Sending command: {json.dumps(cmd)}")
-                    response = await send_command(websocket, cmd)
-                    print("\nServer response:", json.dumps(response, indent=2))
+                    await send_command(websocket, cmd)
                 except Exception as e:
                     logger.error(f"Error sending command: {e}")
                     break
+
+            message_listener.cancel()
+            try:
+                await message_listener
+            except asyncio.CancelledError:
+                pass
 
     except Exception as e:
         logger.error(f"Connection error: {e}")

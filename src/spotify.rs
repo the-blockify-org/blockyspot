@@ -10,8 +10,13 @@ use librespot::playback::{
     mixer,
     mixer::MixerConfig,
     player::Player,
+    player::SinkStatus,
 };
 use std::sync::Arc;
+use tokio::sync::mpsc;
+use warp::ws::Message;
+use crate::server::WsResult;
+use serde_json;
 
 const CACHE: &str = ".cache";
 const CACHE_FILES: &str = ".cache/files";
@@ -23,6 +28,7 @@ pub struct SpotifyClient {
     spirc: Option<Arc<Spirc>>,
     spirc_task: Option<tokio::task::JoinHandle<()>>,
     device_name: String,
+    ws_sender: Option<mpsc::UnboundedSender<WsResult<Message>>>,
 }
 
 impl SpotifyClient {
@@ -34,8 +40,10 @@ impl SpotifyClient {
         &mut self,
         token: impl Into<String>,
         device_name: String,
+        ws_sender: mpsc::UnboundedSender<WsResult<Message>>,
     ) -> Result<()> {
         self.device_name = device_name.clone();
+        self.ws_sender = Some(ws_sender);
 
         let connect_config = ConnectConfig {
             name: device_name,
@@ -49,10 +57,8 @@ impl SpotifyClient {
         let sink_builder = audio_backend::find(None).unwrap();
         let mixer_builder = mixer::find(None).unwrap();
 
-        // Create cache
         let cache = Cache::new(Some(CACHE), Some(CACHE), Some(CACHE_FILES), None)?;
 
-        // Create credentials from token
         let credentials = Credentials::with_access_token(token);
 
         let session = Session::new(session_config, Some(cache));
@@ -64,6 +70,23 @@ impl SpotifyClient {
             mixer.get_soft_volume(),
             move || sink_builder(None, audio_format),
         );
+
+        // Set up event callbacks for the player
+        let ws_sender_clone = self.ws_sender.clone();
+        player.set_sink_event_callback(Some(Box::new(move |event: SinkStatus| {
+            if let Some(sender) = &ws_sender_clone {
+                let event_json = serde_json::json!({
+                    "type": "sink_event",
+                    "data": {
+                        "status": format!("{:?}", event),
+                    }
+                });
+                
+                if let Ok(msg) = serde_json::to_string(&event_json) {
+                    let _ = sender.send(Ok(Message::text(msg)));
+                }
+            }
+        })));
 
         let (spirc, spirc_task) = Spirc::new(
             connect_config,
@@ -128,6 +151,16 @@ impl SpotifyClient {
         } else {
             anyhow::bail!("Spotify Connect device not initialized")
         }
+    }
+
+    // Helper method to send WebSocket messages
+    fn send_ws_message(&self, message: impl serde::Serialize) -> Result<()> {
+        if let Some(sender) = &self.ws_sender {
+            let msg_str = serde_json::to_string(&message)?;
+            sender.send(Ok(Message::text(msg_str)))
+                .map_err(|e| anyhow::anyhow!("Failed to send WebSocket message: {}", e))?;
+        }
+        Ok(())
     }
 
     // TODO: Implement methods for:

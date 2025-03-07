@@ -12,7 +12,7 @@ use warp::ws::{Message, WebSocket};
 use warp::Filter;
 
 type Clients = Arc<Mutex<HashMap<String, Client>>>;
-type WsResult<T> = std::result::Result<T, warp::Error>;
+pub type WsResult<T> = std::result::Result<T, warp::Error>;
 
 #[derive(Debug, serde::Serialize)]
 struct ConnectionResponse {
@@ -141,6 +141,7 @@ impl SpotifyServer {
                         .initialize(
                             &token,
                             device_name.unwrap_or_else(|| format!("Blockyspot {device_id}")),
+                            client.sender.clone(),
                         )
                         .await
                     {
