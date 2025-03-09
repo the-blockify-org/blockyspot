@@ -138,7 +138,7 @@ impl SpotifyServer {
             let mut clients = server.clients.lock().await;
 
             match command {
-                Command::Connect { token, device_name } => {
+                Command::CreateDevice { token, device_name } => {
                     if let Some(client) = clients.get_mut(device_id) {
                         if client.spotify.is_some() {
                             CommandResponse::error("Device is already connected to Spotify")

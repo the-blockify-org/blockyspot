@@ -11,7 +11,7 @@ pub struct CommandMessage {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type")]
 pub enum Command {
-    Connect {
+    CreateDevice {
         token: String,
         device_name: Option<String>,
     },
@@ -30,7 +30,7 @@ impl Command {
         let device_id = msg.device_id;
         
         let command = match msg.command_type.as_str() {
-            "connect" => {
+            "CreateDevice" => {
                 let token = msg.params.get("token")
                     .and_then(|v| v.as_str())
                     .ok_or("Missing token parameter")?
@@ -40,7 +40,7 @@ impl Command {
                     .and_then(|v| v.as_str())
                     .map(String::from);
                 
-                Command::Connect { token, device_name }
+                Command::CreateDevice { token, device_name }
             },
             "play" => {
                 let track_id = msg.params.get("track_id")
