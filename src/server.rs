@@ -12,7 +12,7 @@ use uuid::Uuid;
 use warp::ws::{Message, WebSocket};
 use warp::Filter;
 
-const PROTOCOL_VERSION: &str = "1.0.0";
+const PROTOCOL_VERSION: &str = "0.1.0";
 
 type Clients = Arc<Mutex<HashMap<String, Client>>>;
 pub type WsResult<T> = std::result::Result<T, warp::Error>;
