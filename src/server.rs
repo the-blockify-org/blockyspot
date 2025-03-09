@@ -186,11 +186,3 @@ impl SpotifyServer {
 fn with_clients(clients: Clients) -> impl Filter<Extract = (Clients,), Error = Infallible> + Clone {
     warp::any().map(move || clients.clone())
 }
-
-async fn broadcast_to_client(clients: &Clients, device_id: &str, message: &str) {
-    if let Some(client) = clients.lock().await.get(device_id) {
-        if let Err(e) = client.sender.send(Ok(Message::text(message))) {
-            error!("Error broadcasting to device {}: {}", device_id, e);
-        }
-    }
-}
