@@ -1,31 +1,20 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub enum Command {
     Connect {
         token: String,
         device_id: String,
         device_name: Option<String>,
     },
-    Disconnect {
-        device_id: String,
-    },
+    Disconnect,
     Play {
-        device_id: String,
         track_id: String,
     },
-    Pause {
-        device_id: String,
-    },
-    Resume {
-        device_id: String,
-    },
-    Stop {
-        device_id: String,
-    },
-    GetCurrentTrack {
-        device_id: String,
-    },
+    Pause,
+    Resume,
+    Stop,
+    GetCurrentTrack,
 }
 
 #[derive(Debug, Serialize)]
