@@ -40,28 +40,22 @@ python test_client.py
 
 ## WebSocket Protocol
 
-The server operates on WebSocket protocol (port 8888). When a client connects to `ws://localhost:8888/ws`, the server automatically generates and returns a unique device ID. This ID is used for all subsequent commands.
+The server operates on WebSocket protocol (port 8888). When a client connects to `ws://localhost:8888/ws`, a connection is created where the client can execute commands like `CreateDevice` to start using the Spotify Connect device or commands like `Load` to start interacting with an specific device.
 
 ### Connection Flow
 
 1. Client connects to `ws://localhost:8888/ws`
-2. Server generates and sends a device ID:
+2. Server responds with a success or error message. In case of success, providing the protocol version.
 ```json
 {
-    "device_id": "generated_uuid",
-    "message": "Connected to server. Use this device_id for future commands."
+  "status": "Connected to server",
+  "protocol_version": "1.0.0"
 }
 ```
-3. Client uses this device ID for all future commands
+3. Now the client can start executing commands.
 
 ### Available Commands
-
-- Connect: Initialize a Spotify Connect device with an access token
-- Play: Play a specific track
-- Pause: Pause playback
-- Resume: Resume playback
-- Stop: Stop playback
-- GetCurrentTrack: Get information about the current track (coming soon)
+- CreateDevice: Initialize a Spotify Connect device with an access token
 
 ### Command Format
 
@@ -69,37 +63,28 @@ All commands follow this JSON structure:
 
 ```json
 {
-    "Command_Name": {
-        "device_id": "device_id_from_server",
-        ...command specific fields...
+    "command_type": "Name",
+    "params": {
+        "key": "value"
     }
 }
 ```
 
-Example commands:
+For example:
 
 ```json
-// Connect to Spotify
 {
-    "Connect": {
-        "token": "spotify_access_token",
-        "device_id": "device_id_from_server",
-        "device_name": "Optional Device Name"
-    }
-}
-
-// Play a track
-{
-    "Play": {
-        "device_id": "device_id_from_server",
-        "track_id": "spotify_track_id"
-    }
+  "command_type": "CreateDevice",
+  "params": {
+    "device_name": "Blockify Boombox #2",
+    "token": "yQRB....MEg3"
+  }
 }
 ```
 
 ### Server Responses
 
-All server responses follow this format:
+All server responses to commands follow this format:
 ```json
 {
     "success": true/false,
@@ -107,17 +92,6 @@ All server responses follow this format:
     "data": {} // Optional additional data
 }
 ```
-
-## Project Structure
-
-- `src/`
-  - `main.rs`: Server entry point
-  - `server.rs`: WebSocket server and command handling
-  - `spotify.rs`: Spotify Connect device implementation
-  - `commands.rs`: Command and response types
-- `test_client.py`: Python test client
-- `Cargo.toml`: Rust dependencies and project metadata
-
 ## License
 
 MIT License

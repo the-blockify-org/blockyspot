@@ -165,9 +165,6 @@ impl SpotifyClient {
 
         let spirc = Arc::new(spirc);
 
-        // Queue the commands
-        spirc.activate()?;
-
         self.session = Some(session);
         self.player = Some(player);
         self.spirc = Some(spirc);
