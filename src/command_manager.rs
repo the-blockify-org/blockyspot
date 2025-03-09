@@ -20,6 +20,7 @@ impl CommandHandler for PauseCommandHandler {
     }
 }
 
+#[derive(Clone)]
 pub struct CommandManager;
 impl CommandManager {
     pub fn new() -> Self {

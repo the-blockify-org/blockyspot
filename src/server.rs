@@ -1,5 +1,6 @@
-use crate::commands::{Command, CommandResponse};
+use crate::commands::{Command, CommandResponse, CommandMessage};
 use crate::spotify::SpotifyClient;
+use crate::command_manager::CommandManager;
 use futures::{FutureExt, StreamExt};
 use log::{error, info};
 use std::collections::HashMap;
@@ -37,12 +38,14 @@ impl Client {
 #[derive(Clone)]
 pub struct SpotifyServer {
     clients: Clients,
+    command_manager: CommandManager,
 }
 
 impl SpotifyServer {
     pub fn new() -> Self {
         Self {
             clients: Arc::new(Mutex::new(HashMap::new())),
+            command_manager: CommandManager::new(),
         }
     }
 
@@ -92,7 +95,7 @@ impl SpotifyServer {
             }
         }
 
-        let server = SpotifyServer { clients: clients.clone() };
+        let server = SpotifyServer { clients: clients.clone(), command_manager: CommandManager::new() };
         
         while let Some(result) = ws_receiver.next().await {
             let msg = match result {
@@ -104,15 +107,77 @@ impl SpotifyServer {
             };
 
             if let Ok(text) = msg.to_str() {
-                let command: Command = match serde_json::from_str(text) {
-                    Ok(cmd) => cmd,
+                let command_message: CommandMessage = match serde_json::from_str(text) {
+                    Ok(msg) => msg,
                     Err(e) => {
-                        error!("Error parsing command: {}", e);
+                        error!("Error parsing command message: {}", e);
                         continue;
                     }
                 };
 
-                let response = server.handle_command(&device_id, command).await;
+                let (msg_device_id, command) = match Command::from_message(command_message) {
+                    Ok(result) => result,
+                    Err(e) => {
+                        let error_response = CommandResponse::error(e);
+                        if let Err(e) = tx.send(Ok(Message::text(serde_json::to_string(&error_response).unwrap()))) {
+                            error!("Error sending error response: {}", e);
+                        }
+                        continue;
+                    }
+                };
+
+                // Verify the device ID matches
+                if msg_device_id != device_id {
+                    let error_response = CommandResponse::error("Device ID mismatch");
+                    if let Err(e) = tx.send(Ok(Message::text(serde_json::to_string(&error_response).unwrap()))) {
+                        error!("Error sending error response: {}", e);
+                    }
+                    continue;
+                }
+
+                let response = {
+                    let mut clients = server.clients.lock().await;
+
+                    match command {
+                        Command::Connect { token, device_name } => {
+                            if let Some(client) = clients.get_mut(&device_id) {
+                                if client.spotify.is_some() {
+                                    CommandResponse::error("Device is already connected to Spotify")
+                                } else {
+                                    let mut spotify = SpotifyClient::new();
+                                    match spotify
+                                        .initialize(
+                                            &token,
+                                            device_name.unwrap_or_else(|| format!("Blockyspot {device_id}")),
+                                            client.sender.clone(),
+                                        )
+                                        .await
+                                    {
+                                        Ok(()) => {
+                                            client.spotify = Some(spotify);
+                                            CommandResponse::success("Connected to Spotify", None)
+                                        }
+                                        Err(e) => CommandResponse::error(format!("Failed to connect: {e}")),
+                                    }
+                                }
+                            } else {
+                                CommandResponse::error("Device not found")
+                            }
+                        }
+                        cmd => {
+                            if let Some(client) = clients.get_mut(&device_id) {
+                                if let Some(spotify) = &mut client.spotify {
+                                    server.command_manager.execute(cmd, spotify)
+                                } else {
+                                    CommandResponse::error("Device not connected to Spotify")
+                                }
+                            } else {
+                                CommandResponse::error("Device not found")
+                            }
+                        }
+                    }
+                };
+
                 let response_json = serde_json::to_string(&response).unwrap();
                 
                 if let Err(e) = tx.send(Ok(Message::text(response_json))) {
@@ -124,79 +189,6 @@ impl SpotifyServer {
 
         clients.lock().await.remove(&device_id);
         info!("Client {} disconnected", device_id);
-    }
-
-    async fn handle_command(&self, device_id: &str, command: Command) -> CommandResponse {
-        let mut clients = self.clients.lock().await;
-
-        match command {
-            Command::Connect { token, device_name, .. } => {
-                if let Some(client) = clients.get_mut(device_id) {
-                    if client.spotify.is_some() {
-                        return CommandResponse::error("Device is already connected to Spotify");
-                    }
-
-                    let mut spotify = SpotifyClient::new();
-                    match spotify
-                        .initialize(
-                            &token,
-                            device_name.unwrap_or_else(|| format!("Blockyspot {device_id}")),
-                            client.sender.clone(),
-                        )
-                        .await
-                    {
-                        Ok(()) => {
-                            client.spotify = Some(spotify);
-                            CommandResponse::success("Connected to Spotify", None)
-                        }
-                        Err(e) => CommandResponse::error(format!("Failed to connect: {e}")),
-                    }
-                } else {
-                    CommandResponse::error("Device not found")
-                }
-            }
-            cmd => {
-                if let Some(client) = clients.get_mut(device_id) {
-                    if let Some(spotify) = &mut client.spotify {
-                        match cmd {
-                            Command::Play { track_id, .. } => {
-                                match spotify.play_track(&track_id) {
-                                    Ok(()) => CommandResponse::success("Playing track", None),
-                                    Err(e) => CommandResponse::error(format!("Failed to play track: {e}")),
-                                }
-                            }
-                            Command::Pause { .. } => {
-                                match spotify.pause() {
-                                    Ok(()) => CommandResponse::success("Playback paused", None),
-                                    Err(e) => CommandResponse::error(format!("Failed to pause: {e}")),
-                                }
-                            }
-                            Command::Resume { .. } => {
-                                match spotify.resume() {
-                                    Ok(()) => CommandResponse::success("Playback resumed", None),
-                                    Err(e) => CommandResponse::error(format!("Failed to resume: {e}")),
-                                }
-                            }
-                            Command::Stop { .. } => {
-                                match spotify.stop_playback() {
-                                    Ok(()) => CommandResponse::success("Playback stopped", None),
-                                    Err(e) => CommandResponse::error(format!("Failed to stop: {e}")),
-                                }
-                            }
-                            Command::GetCurrentTrack { .. } => {
-                                // TODO: Implement getting current track info
-                                CommandResponse::error("Getting current track not implemented yet")
-                            }
-                            _ => CommandResponse::error("Invalid command for connected device"),
-                        }
-                    } else {
-                        CommandResponse::error("Device not connected to Spotify")
-                    }
-                } else {
-                    CommandResponse::error("Device not found")
-                }
-            }
-        }
     }
 }
 
