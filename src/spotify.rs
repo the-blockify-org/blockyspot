@@ -23,6 +23,23 @@ use crate::ws_sink::create_ws_sink;
 const CACHE: &str = ".cache";
 const CACHE_FILES: &str = ".cache/files";
 
+macro_rules! spirc_call {
+    ($self:expr, $method:ident) => {
+        if let Some(spirc) = &$self.spirc {
+            spirc.$method().map_err(|e| anyhow::anyhow!("Failed to execute {}: {}", stringify!($method), e))
+        } else {
+            anyhow::bail!("Spotify Connect device not initialized")
+        }
+    };
+    ($self:expr, $method:ident, $($arg:expr),+) => {
+        if let Some(spirc) = &$self.spirc {
+            spirc.$method($($arg),+).map_err(|e| anyhow::anyhow!("Failed to execute {}: {}", stringify!($method), e))
+        } else {
+            anyhow::bail!("Spotify Connect device not initialized")
+        }
+    };
+}
+
 #[derive(Default)]
 pub struct SpotifyClient {
     session: Option<Session>,
@@ -173,65 +190,64 @@ impl SpotifyClient {
         Ok(())
     }
 
-    pub fn play_track(&self, track_id: impl AsRef<str>) -> Result<()> {
-        let track_id = track_id.as_ref();
+    // Direct Spirc wrapper methods
+    pub fn shutdown(&self) -> Result<()> {
+        spirc_call!(self, shutdown)
+    }
 
-        if let Some(spirc) = &self.spirc {
-            let options = LoadRequestOptions::default();
-            let request =
-                LoadRequest::from_context_uri(format!("spotify:track:{track_id}"), options);
-            spirc.activate()?;
-            spirc.load(request)?;
-            spirc.play()?;
-            Ok(())
-        } else {
-            anyhow::bail!("Spotify Connect device not initialized")
-        }
+    pub fn play(&self) -> Result<()> {
+        spirc_call!(self, play)
+    }
+
+    pub fn play_pause(&self) -> Result<()> {
+        spirc_call!(self, play_pause)
     }
 
     pub fn pause(&self) -> Result<()> {
-        if let Some(spirc) = &self.spirc {
-            spirc.pause()?;
-            Ok(())
-        } else {
-            anyhow::bail!("Spotify Connect device not initialized")
-        }
+        spirc_call!(self, pause)
     }
 
-    pub fn resume(&self) -> Result<()> {
-        if let Some(spirc) = &self.spirc {
-            spirc.play()?;
-            Ok(())
-        } else {
-            anyhow::bail!("Spotify Connect device not initialized")
-        }
+    pub fn prev(&self) -> Result<()> {
+        spirc_call!(self, prev)
     }
 
-    pub fn stop_playback(&self) -> Result<()> {
-        if let Some(spirc) = &self.spirc {
-            spirc.shutdown()?;
-            // Cancel the player event task when stopping playback
-            if let Some(task) = &self.player_event_task {
-                task.abort();
-            }
-            Ok(())
-        } else {
-            anyhow::bail!("Spotify Connect device not initialized")
-        }
+    pub fn next(&self) -> Result<()> {
+        spirc_call!(self, next)
     }
 
-    // Helper method to send WebSocket messages
-    fn send_ws_message(&self, message: impl serde::Serialize) -> Result<()> {
-        if let Some(sender) = &self.ws_sender {
-            let msg_str = serde_json::to_string(&message)?;
-            sender.send(Ok(Message::text(msg_str)))
-                .map_err(|e| anyhow::anyhow!("Failed to send WebSocket message: {}", e))?;
-        }
-        Ok(())
+    pub fn volume_up(&self) -> Result<()> {
+        spirc_call!(self, volume_up)
     }
 
-    // TODO: Implement methods for:
-    // - Getting current track information
-    // - Managing the audio stream
-    // - Handling player events
+    pub fn volume_down(&self) -> Result<()> {
+        spirc_call!(self, volume_down)
+    }
+
+    pub fn shuffle(&self, shuffle: bool) -> Result<()> {
+        spirc_call!(self, shuffle, shuffle)
+    }
+
+    pub fn repeat(&self, repeat: bool) -> Result<()> {
+        spirc_call!(self, repeat, repeat)
+    }
+
+    pub fn repeat_track(&self, repeat: bool) -> Result<()> {
+        spirc_call!(self, repeat_track, repeat)
+    }
+
+    pub fn set_volume(&self, volume: u16) -> Result<()> {
+        spirc_call!(self, set_volume, volume)
+    }
+
+    pub fn set_position_ms(&self, position_ms: u32) -> Result<()> {
+        spirc_call!(self, set_position_ms, position_ms)
+    }
+
+    pub fn disconnect(&self, pause: bool) -> Result<()> {
+        spirc_call!(self, disconnect, pause)
+    }
+
+    pub fn activate(&self) -> Result<()> {
+        spirc_call!(self, activate)
+    }
 }

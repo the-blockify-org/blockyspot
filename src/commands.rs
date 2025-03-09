@@ -16,14 +16,21 @@ pub enum Command {
         token: String,
         device_name: Option<String>,
     },
-    Disconnect,
-    Play {
-        track_id: String,
-    },
+    Play,
+    PlayPause,
     Pause,
-    Resume,
-    Stop,
-    GetCurrentTrack,
+    Prev,
+    Next,
+    VolumeUp,
+    VolumeDown,
+    Shutdown,
+    Shuffle(bool),
+    Repeat(bool),
+    RepeatTrack(bool),
+    Disconnect { pause: bool },
+    SetPosition(u32),
+    SetVolume(u16),
+    Activate,
 }
 
 impl Command {
@@ -46,18 +53,51 @@ impl Command {
                     .ok_or("Device ID is required for this command")?;
                 
                 let command = match cmd_type {
-                    "play" => {
-                        let track_id = msg.params.get("track_id")
-                            .and_then(|v| v.as_str())
-                            .ok_or("Missing track_id parameter")?
-                            .to_string();
-                        
-                        Command::Play { track_id }
+                    "Play" => Command::Play,
+                    "PlayPause" => Command::PlayPause,
+                    "Pause" => Command::Pause,
+                    "Prev" => Command::Prev,
+                    "Next" => Command::Next,
+                    "VolumeUp" => Command::VolumeUp,
+                    "VolumeDown" => Command::VolumeDown,
+                    "Shutdown" => Command::Shutdown,
+                    "Shuffle" => {
+                        let state = msg.params.get("state")
+                            .and_then(|v| v.as_bool())
+                            .ok_or("Missing or invalid shuffle state parameter")?;
+                        Command::Shuffle(state)
                     },
-                    "pause" => Command::Pause,
-                    "resume" => Command::Resume,
-                    "stop" => Command::Stop,
-                    "get_current_track" => Command::GetCurrentTrack,
+                    "Repeat" => {
+                        let state = msg.params.get("state")
+                            .and_then(|v| v.as_bool())
+                            .ok_or("Missing or invalid repeat state parameter")?;
+                        Command::Repeat(state)
+                    },
+                    "RepeatTrack" => {
+                        let state = msg.params.get("state")
+                            .and_then(|v| v.as_bool())
+                            .ok_or("Missing or invalid repeat_track state parameter")?;
+                        Command::RepeatTrack(state)
+                    },
+                    "Disconnect" => {
+                        let pause = msg.params.get("pause")
+                            .and_then(|v| v.as_bool())
+                            .unwrap_or(false);
+                        Command::Disconnect { pause }
+                    },
+                    "SetPosition" => {
+                        let position = msg.params.get("position")
+                            .and_then(|v| v.as_u64())
+                            .ok_or("Missing or invalid position parameter")?;
+                        Command::SetPosition(position.try_into().map_err(|_| "Position value out of range")?)
+                    },
+                    "SetVolume" => {
+                        let volume = msg.params.get("volume")
+                            .and_then(|v| v.as_u64())
+                            .ok_or("Missing or invalid volume parameter")?;
+                        Command::SetVolume(volume.try_into().map_err(|_| "Volume value out of range")?)
+                    },
+                    "Activate" => Command::Activate,
                     _ => return Err(format!("Unknown command type: {}", cmd_type))
                 };
                 
