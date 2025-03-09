@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct CommandMessage {
-    pub device_id: String,
+    #[serde(default)]
+    pub device_id: Option<String>,
     pub command_type: String,
     #[serde(default)]
     pub params: serde_json::Value,
@@ -27,8 +28,6 @@ pub enum Command {
 
 impl Command {
     pub fn from_message(msg: CommandMessage) -> Result<(String, Command), String> {
-        let device_id = msg.device_id;
-        
         let command = match msg.command_type.as_str() {
             "CreateDevice" => {
                 let token = msg.params.get("token")
@@ -40,24 +39,33 @@ impl Command {
                     .and_then(|v| v.as_str())
                     .map(String::from);
                 
-                Command::CreateDevice { token, device_name }
+                (String::new(), Command::CreateDevice { token, device_name })
             },
-            "play" => {
-                let track_id = msg.params.get("track_id")
-                    .and_then(|v| v.as_str())
-                    .ok_or("Missing track_id parameter")?
-                    .to_string();
+            cmd_type => {
+                let device_id = msg.device_id
+                    .ok_or("Device ID is required for this command")?;
                 
-                Command::Play { track_id }
-            },
-            "pause" => Command::Pause,
-            "resume" => Command::Resume,
-            "stop" => Command::Stop,
-            "get_current_track" => Command::GetCurrentTrack,
-            _ => return Err(format!("Unknown command type: {}", msg.command_type))
+                let command = match cmd_type {
+                    "play" => {
+                        let track_id = msg.params.get("track_id")
+                            .and_then(|v| v.as_str())
+                            .ok_or("Missing track_id parameter")?
+                            .to_string();
+                        
+                        Command::Play { track_id }
+                    },
+                    "pause" => Command::Pause,
+                    "resume" => Command::Resume,
+                    "stop" => Command::Stop,
+                    "get_current_track" => Command::GetCurrentTrack,
+                    _ => return Err(format!("Unknown command type: {}", cmd_type))
+                };
+                
+                (device_id, command)
+            }
         };
 
-        Ok((device_id, command))
+        Ok(command)
     }
 }
 

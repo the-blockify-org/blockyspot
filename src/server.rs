@@ -90,7 +90,6 @@ impl SpotifyServer {
             }
         }));
 
-        // Create connection-specific state
         let connection_state = Arc::new(Mutex::new(ConnectionState::new(tx.clone())));
         
         let connection_response = ConnectionResponse {
@@ -132,36 +131,33 @@ impl SpotifyServer {
         connection_state: Arc<Mutex<ConnectionState>>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let command_message: CommandMessage = serde_json::from_str(text)?;
-        let (device_id, command) = Command::from_message(command_message)?;
-
-        info!("Processing command: {:?}", command); 
 
         let response = {
             let mut state = connection_state.lock().await;
 
-            match command {
-                Command::CreateDevice { token, device_name } => {
-                    if state.devices.contains_key(&device_id) {
-                        CommandResponse::error("Device ID already exists")
-                    } else {
-                        let mut spotify = SpotifyClient::new();
-                        match spotify
-                            .initialize(
-                                &token,
-                                device_name.unwrap_or_else(|| format!("Blockyspot {device_id}")),
-                                tx.clone(),
+            match Command::from_message(command_message)? {
+                (_, Command::CreateDevice { token, device_name }) => {
+                    let device_id = Uuid::new_v4().to_string();
+                    let mut spotify = SpotifyClient::new();
+                    match spotify
+                        .initialize(
+                            &token,
+                            device_name.unwrap_or_else(|| format!("Blockyspot {device_id}")),
+                            tx.clone(),
+                        )
+                        .await
+                    {
+                        Ok(()) => {
+                            state.devices.insert(device_id.clone(), spotify);
+                            CommandResponse::success(
+                                "Connected to Spotify",
+                                Some(serde_json::json!({ "device_id": device_id }))
                             )
-                            .await
-                        {
-                            Ok(()) => {
-                                state.devices.insert(device_id, spotify);
-                                CommandResponse::success("Connected to Spotify", None)
-                            }
-                            Err(e) => CommandResponse::error(format!("Failed to connect: {e}")),
                         }
+                        Err(e) => CommandResponse::error(format!("Failed to connect: {e}")),
                     }
                 }
-                cmd => {
+                (device_id, cmd) => {
                     if let Some(spotify) = state.devices.get_mut(&device_id) {
                         self.command_manager.execute(cmd, spotify)
                     } else {
