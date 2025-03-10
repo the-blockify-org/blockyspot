@@ -130,40 +130,53 @@ impl SpotifyServer {
         tx: &mpsc::UnboundedSender<WsResult<Message>>,
         connection_state: Arc<Mutex<ConnectionState>>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let command_message: CommandMessage = serde_json::from_str(text)?;
+        let command_message: CommandMessage = match serde_json::from_str(text) {
+            Ok(msg) => msg,
+            Err(e) => {
+                let error_response = CommandResponse::error(format!("Invalid JSON format: {}", e));
+                let response_json = serde_json::to_string(&error_response)?;
+                tx.send(Ok(Message::text(response_json)))?;
+                return Ok(());
+            }
+        };
 
         let response = {
             let mut state = connection_state.lock().await;
 
-            match Command::from_message(command_message)? {
-                (_, Command::CreateDevice { token, device_name }) => {
-                    let device_id = Uuid::new_v4().to_string();
-                    let mut spotify = SpotifyClient::new();
-                    match spotify
-                        .initialize(
-                            &token,
-                            device_name.unwrap_or_else(|| format!("Blockyspot {device_id}")),
-                            tx.clone(),
-                        )
-                        .await
-                    {
-                        Ok(()) => {
-                            state.devices.insert(device_id.clone(), spotify);
-                            CommandResponse::success(
-                                "Connected to Spotify",
-                                Some(serde_json::json!({ "device_id": device_id }))
-                            )
+            match Command::from_message(command_message) {
+                Ok((device_id, cmd)) => {
+                    match cmd {
+                        Command::CreateDevice { token, device_name } => {
+                            let device_id = Uuid::new_v4().to_string();
+                            let mut spotify = SpotifyClient::new();
+                            match spotify
+                                .initialize(
+                                    &token,
+                                    device_name.unwrap_or_else(|| format!("Blockyspot {device_id}")),
+                                    tx.clone(),
+                                )
+                                .await
+                            {
+                                Ok(()) => {
+                                    state.devices.insert(device_id.clone(), spotify);
+                                    CommandResponse::success(
+                                        "Connected to Spotify",
+                                        Some(serde_json::json!({ "device_id": device_id }))
+                                    )
+                                }
+                                Err(e) => CommandResponse::error(format!("Failed to connect: {e}")),
+                            }
                         }
-                        Err(e) => CommandResponse::error(format!("Failed to connect: {e}")),
+                        cmd => {
+                            if let Some(spotify) = state.devices.get_mut(&device_id) {
+                                self.command_manager.execute(cmd, spotify)
+                            } else {
+                                CommandResponse::error("Device not found")
+                            }
+                        }
                     }
                 }
-                (device_id, cmd) => {
-                    if let Some(spotify) = state.devices.get_mut(&device_id) {
-                        self.command_manager.execute(cmd, spotify)
-                    } else {
-                        CommandResponse::error("Device not found")
-                    }
-                }
+                Err(e) => CommandResponse::error(format!("Invalid command: {}", e)),
             }
         };
 
