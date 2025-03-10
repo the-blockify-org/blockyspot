@@ -49,9 +49,6 @@ impl Command {
                 (String::new(), Command::CreateDevice { token, device_name })
             },
             cmd_type => {
-                let device_id = msg.device_id
-                    .ok_or("Device ID is required for this command")?;
-                
                 let command = match cmd_type {
                     "Play" => Command::Play,
                     "PlayPause" => Command::PlayPause,
@@ -100,6 +97,9 @@ impl Command {
                     "Activate" => Command::Activate,
                     _ => return Err(format!("Unknown command type: {}", cmd_type))
                 };
+                
+                let device_id = msg.device_id
+                    .ok_or("Device ID is required for this command")?;
                 
                 (device_id, command)
             }
