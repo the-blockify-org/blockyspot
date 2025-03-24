@@ -1,5 +1,6 @@
-use crate::commands::{Command, CommandResponse};
+use crate::commands::{Command, CommandResponse, CommandMessage};
 use crate::spotify::SpotifyClient;
+use crate::command_manager::CommandManager;
 use futures::{FutureExt, StreamExt};
 use log::{error, info};
 use std::collections::HashMap;
@@ -11,13 +12,15 @@ use uuid::Uuid;
 use warp::ws::{Message, WebSocket};
 use warp::Filter;
 
+const PROTOCOL_VERSION: &str = "0.1.0";
+
 type Clients = Arc<Mutex<HashMap<String, Client>>>;
 pub type WsResult<T> = std::result::Result<T, warp::Error>;
 
 #[derive(Debug, serde::Serialize)]
 struct ConnectionResponse {
-    device_id: String,
-    message: String,
+    status: String,
+    protocol_version: String,
 }
 
 struct Client {
@@ -34,26 +37,39 @@ impl Client {
     }
 }
 
+struct ConnectionState {
+    devices: HashMap<String, SpotifyClient>,
+    sender: mpsc::UnboundedSender<WsResult<Message>>,
+}
+
+impl ConnectionState {
+    fn new(sender: mpsc::UnboundedSender<WsResult<Message>>) -> Self {
+        Self {
+            devices: HashMap::new(),
+            sender,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct SpotifyServer {
-    clients: Clients,
+    command_manager: CommandManager,
 }
 
 impl SpotifyServer {
     pub fn new() -> Self {
         Self {
-            clients: Arc::new(Mutex::new(HashMap::new())),
+            command_manager: CommandManager::new(),
         }
     }
 
     pub async fn start(self, port: u16) {
-        let clients = self.clients.clone();
-
+        let server = self.clone();
         let ws_route = warp::path("ws")
             .and(warp::ws())
-            .and(with_clients(clients.clone()))
-            .map(|ws: warp::ws::Ws, clients| {
-                ws.on_upgrade(move |socket| Self::handle_client_connection(socket, clients))
+            .map(move |ws: warp::ws::Ws| {
+                let server = server.clone();
+                ws.on_upgrade(move |socket| server.handle_client_connection(socket))
             });
 
         let routes = ws_route.with(warp::cors().allow_any_origin());
@@ -61,9 +77,8 @@ impl SpotifyServer {
         warp::serve(routes).run(([127, 0, 0, 1], port)).await;
     }
 
-    async fn handle_client_connection(ws: WebSocket, clients: Clients) {
-        let device_id = Uuid::new_v4().to_string();
-        info!("New client connecting with generated device_id: {}", device_id);
+    async fn handle_client_connection(self, ws: WebSocket) {
+        info!("New client connecting");
 
         let (ws_sender, mut ws_receiver) = ws.split();
         let (tx, rx) = mpsc::unbounded_channel();
@@ -75,139 +90,98 @@ impl SpotifyServer {
             }
         }));
 
-        {
-            let mut clients = clients.lock().await;
-            clients.insert(device_id.clone(), Client::new(tx.clone()));
-        }
-
+        let connection_state = Arc::new(Mutex::new(ConnectionState::new(tx.clone())));
+        
         let connection_response = ConnectionResponse {
-            device_id: device_id.clone(),
-            message: "Connected to server. Use this device_id for future commands.".to_string(),
+            status: "Connected to server".to_string(),
+            protocol_version: PROTOCOL_VERSION.to_string(),
         };
         
         if let Ok(response_json) = serde_json::to_string(&connection_response) {
             if let Err(e) = tx.send(Ok(Message::text(response_json))) {
-                error!("Error sending initial device_id: {}", e);
+                error!("Error sending initial connection response: {}", e);
                 return;
             }
         }
-
-        let server = SpotifyServer { clients: clients.clone() };
         
         while let Some(result) = ws_receiver.next().await {
             let msg = match result {
                 Ok(msg) => msg,
                 Err(e) => {
-                    error!("Error receiving ws message for device_id {}: {}", device_id, e);
+                    error!("Error receiving ws message: {}", e);
                     break;
                 }
             };
 
             if let Ok(text) = msg.to_str() {
-                let command: Command = match serde_json::from_str(text) {
-                    Ok(cmd) => cmd,
-                    Err(e) => {
-                        error!("Error parsing command: {}", e);
-                        continue;
-                    }
-                };
-
-                let response = server.handle_command(&device_id, command).await;
-                let response_json = serde_json::to_string(&response).unwrap();
-                
-                if let Err(e) = tx.send(Ok(Message::text(response_json))) {
-                    error!("Error sending response: {}", e);
+                if let Err(e) = self.process_ws_message(text, &tx, connection_state.clone()).await {
+                    error!("Error processing message: {}", e);
                     break;
                 }
             }
         }
 
-        clients.lock().await.remove(&device_id);
-        info!("Client {} disconnected", device_id);
+        info!("Client disconnected");
     }
 
-    async fn handle_command(&self, device_id: &str, command: Command) -> CommandResponse {
-        let mut clients = self.clients.lock().await;
-
-        match command {
-            Command::Connect { token, device_name, .. } => {
-                if let Some(client) = clients.get_mut(device_id) {
-                    if client.spotify.is_some() {
-                        return CommandResponse::error("Device is already connected to Spotify");
-                    }
-
-                    let mut spotify = SpotifyClient::new();
-                    match spotify
-                        .initialize(
-                            &token,
-                            device_name.unwrap_or_else(|| format!("Blockyspot {device_id}")),
-                            client.sender.clone(),
-                        )
-                        .await
-                    {
-                        Ok(()) => {
-                            client.spotify = Some(spotify);
-                            CommandResponse::success("Connected to Spotify", None)
-                        }
-                        Err(e) => CommandResponse::error(format!("Failed to connect: {e}")),
-                    }
-                } else {
-                    CommandResponse::error("Device not found")
-                }
+    async fn process_ws_message(
+        &self,
+        text: &str,
+        tx: &mpsc::UnboundedSender<WsResult<Message>>,
+        connection_state: Arc<Mutex<ConnectionState>>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let command_message: CommandMessage = match serde_json::from_str(text) {
+            Ok(msg) => msg,
+            Err(e) => {
+                let error_response = CommandResponse::error(format!("Invalid JSON format: {}", e));
+                let response_json = serde_json::to_string(&error_response)?;
+                tx.send(Ok(Message::text(response_json)))?;
+                return Ok(());
             }
-            cmd => {
-                if let Some(client) = clients.get_mut(device_id) {
-                    if let Some(spotify) = &mut client.spotify {
-                        match cmd {
-                            Command::Play { track_id, .. } => {
-                                match spotify.play_track(&track_id) {
-                                    Ok(()) => CommandResponse::success("Playing track", None),
-                                    Err(e) => CommandResponse::error(format!("Failed to play track: {e}")),
+        };
+
+        let response = {
+            let mut state = connection_state.lock().await;
+
+            match Command::from_message(command_message) {
+                Ok((device_id, cmd)) => {
+                    match cmd {
+                        Command::CreateDevice { token, device_name } => {
+                            let device_id = Uuid::new_v4().to_string();
+                            let mut spotify = SpotifyClient::new();
+                            match spotify
+                                .initialize(
+                                    &token,
+                                    device_name.unwrap_or_else(|| format!("Blockyspot {device_id}")),
+                                    tx.clone(),
+                                )
+                                .await
+                            {
+                                Ok(()) => {
+                                    state.devices.insert(device_id.clone(), spotify);
+                                    CommandResponse::success(
+                                        "Connected to Spotify",
+                                        Some(serde_json::json!({ "device_id": device_id }))
+                                    )
                                 }
+                                Err(e) => CommandResponse::error(format!("Failed to connect: {e}")),
                             }
-                            Command::Pause { .. } => {
-                                match spotify.pause() {
-                                    Ok(()) => CommandResponse::success("Playback paused", None),
-                                    Err(e) => CommandResponse::error(format!("Failed to pause: {e}")),
-                                }
-                            }
-                            Command::Resume { .. } => {
-                                match spotify.resume() {
-                                    Ok(()) => CommandResponse::success("Playback resumed", None),
-                                    Err(e) => CommandResponse::error(format!("Failed to resume: {e}")),
-                                }
-                            }
-                            Command::Stop { .. } => {
-                                match spotify.stop_playback() {
-                                    Ok(()) => CommandResponse::success("Playback stopped", None),
-                                    Err(e) => CommandResponse::error(format!("Failed to stop: {e}")),
-                                }
-                            }
-                            Command::GetCurrentTrack { .. } => {
-                                // TODO: Implement getting current track info
-                                CommandResponse::error("Getting current track not implemented yet")
-                            }
-                            _ => CommandResponse::error("Invalid command for connected device"),
                         }
-                    } else {
-                        CommandResponse::error("Device not connected to Spotify")
+                        cmd => {
+                            if let Some(spotify) = state.devices.get_mut(&device_id) {
+                                self.command_manager.execute(cmd, spotify)
+                            } else {
+                                CommandResponse::error("Device not found")
+                            }
+                        }
                     }
-                } else {
-                    CommandResponse::error("Device not found")
                 }
+                Err(e) => CommandResponse::error(format!("Invalid command: {}", e)),
             }
-        }
-    }
-}
+        };
 
-fn with_clients(clients: Clients) -> impl Filter<Extract = (Clients,), Error = Infallible> + Clone {
-    warp::any().map(move || clients.clone())
-}
-
-async fn broadcast_to_client(clients: &Clients, device_id: &str, message: &str) {
-    if let Some(client) = clients.lock().await.get(device_id) {
-        if let Err(e) = client.sender.send(Ok(Message::text(message))) {
-            error!("Error broadcasting to device {}: {}", device_id, e);
-        }
+        let response_json = serde_json::to_string(&response)?;
+        tx.send(Ok(Message::text(response_json)))?;
+        Ok(())
     }
 }

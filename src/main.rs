@@ -2,6 +2,7 @@ use anyhow::Result;
 use log::info;
 
 mod commands;
+mod command_manager;
 mod server;
 mod spotify;
 mod ws_sink;

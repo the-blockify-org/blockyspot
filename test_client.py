@@ -163,9 +163,10 @@ async def main():
                         None, lambda: input("Enter device name (or press Enter for default): ").strip()
                     )
                     cmd = {
-                        "Connect": {
+                        "device_id": current_device_id,
+                        "command_type": "connect",
+                        "params": {
                             "token": token,
-                            "device_id": current_device_id,
                             "device_name": device_name if device_name else None
                         }
                     }
@@ -174,34 +175,35 @@ async def main():
                         None, lambda: input("Enter track ID (base62 format): ")
                     )
                     cmd = {
-                        "Play": {
-                            "device_id": current_device_id,
+                        "device_id": current_device_id,
+                        "command_type": "play",
+                        "params": {
                             "track_id": track_id
                         }
                     }
                 elif choice == '3':
                     cmd = {
-                        "Pause": {
-                            "device_id": current_device_id
-                        }
+                        "device_id": current_device_id,
+                        "command_type": "pause",
+                        "params": {}
                     }
                 elif choice == '4':
                     cmd = {
-                        "Resume": {
-                            "device_id": current_device_id
-                        }
+                        "device_id": current_device_id,
+                        "command_type": "resume",
+                        "params": {}
                     }
                 elif choice == '5':
                     cmd = {
-                        "Stop": {
-                            "device_id": current_device_id
-                        }
+                        "device_id": current_device_id,
+                        "command_type": "stop",
+                        "params": {}
                     }
                 elif choice == '6':
                     cmd = {
-                        "GetCurrentTrack": {
-                            "device_id": current_device_id
-                        }
+                        "device_id": current_device_id,
+                        "command_type": "get_current_track",
+                        "params": {}
                     }
                 elif choice == '7':
                     break
