@@ -45,7 +45,7 @@ pub struct SpotifyClient {
     session: Option<Session>,
     player: Option<Arc<Player>>,
     spirc: Option<Arc<Spirc>>,
-    spirc_task: Option<tokio::task::JoinHandle<()>>,
+    spirc_task: Option<task::JoinHandle<()>>,
     device_name: String,
     device_id: String,
     ws_sender: Option<mpsc::UnboundedSender<WsResult<Message>>>,

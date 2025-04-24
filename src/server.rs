@@ -4,7 +4,6 @@ use crate::command_manager::CommandManager;
 use futures::{FutureExt, StreamExt};
 use log::{error, info};
 use std::collections::HashMap;
-use std::convert::Infallible;
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
 use tokio_stream::wrappers::UnboundedReceiverStream;
@@ -15,7 +14,7 @@ use warp::Filter;
 const PROTOCOL_VERSION: &str = "0.1.1";
 
 type Clients = Arc<Mutex<HashMap<String, Client>>>;
-pub type WsResult<T> = std::result::Result<T, warp::Error>;
+pub type WsResult<T> = Result<T, warp::Error>;
 
 #[derive(Debug, serde::Serialize)]
 struct ConnectionResponse {
