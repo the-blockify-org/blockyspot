@@ -14,6 +14,7 @@ pub struct WebSocketSink {
     buffer: Vec<f64>,
     chunk_size: usize,
     last_send_time: Option<std::time::Instant>,
+    device_id: String,
 }
 
 impl Open for WebSocketSink {
@@ -27,6 +28,7 @@ impl Open for WebSocketSink {
             buffer: Vec::new(),
             chunk_size: 4410,
             last_send_time: None,
+            device_id: String::new(),
         }
     }
 }
@@ -38,7 +40,8 @@ impl WebSocketSink {
     
     pub fn with_sender(
         sender: mpsc::UnboundedSender<WsResult<Message>>,
-        format: AudioFormat
+        format: AudioFormat,
+        device_id: String,
     ) -> Self {
         Self {
             sender,
@@ -47,6 +50,7 @@ impl WebSocketSink {
             buffer: Vec::new(),
             chunk_size: 4410,
             last_send_time: None,
+            device_id,
         }
     }
 
@@ -83,6 +87,7 @@ impl WebSocketSink {
         
         let audio_msg = serde_json::json!({
             "type": "audio_data",
+            "device_id":  &self.device_id,
             "data": {
                 "format": "pcm_s16le",
                 "encoded": encoded,
@@ -117,6 +122,7 @@ impl Sink for WebSocketSink {
         
         let format_info = serde_json::json!({
             "type": "audio_format",
+            "device_id":  &self.device_id,
             "data": {
                 "sample_rate": sample_rate,
                 "channels": channels,
@@ -145,6 +151,7 @@ impl Sink for WebSocketSink {
         
         let stop_msg = serde_json::json!({
             "type": "audio_stream_stopped",
+            "device_id":  &self.device_id,
             "data": {}
         });
         
@@ -172,6 +179,7 @@ impl Sink for WebSocketSink {
                 let encoded = BASE64.encode(raw_data);
                 let audio_msg = serde_json::json!({
                     "type": "audio_data",
+                    "device_id":  &self.device_id,
                     "data": {
                         "format": "pcm_s16le",
                         "encoded": encoded,
@@ -193,7 +201,8 @@ impl Sink for WebSocketSink {
 
 pub fn create_ws_sink(
     sender: mpsc::UnboundedSender<WsResult<Message>>,
-    format: AudioFormat
+    format: AudioFormat,
+    device_id: String,
 ) -> Box<dyn Sink> {
-    Box::new(WebSocketSink::with_sender(sender, format))
+    Box::new(WebSocketSink::with_sender(sender, format, device_id))
 } 

@@ -47,6 +47,7 @@ pub struct SpotifyClient {
     spirc: Option<Arc<Spirc>>,
     spirc_task: Option<tokio::task::JoinHandle<()>>,
     device_name: String,
+    device_id: String,
     ws_sender: Option<mpsc::UnboundedSender<WsResult<Message>>>,
     player_event_task: Option<task::JoinHandle<()>>,
 }
@@ -61,10 +62,12 @@ impl SpotifyClient {
         token: impl Into<String>,
         device_name: String,
         ws_sender: mpsc::UnboundedSender<WsResult<Message>>,
+        device_id: String,
     ) -> Result<()> {
         self.device_name = device_name.clone();
         let ws_sender_clone = ws_sender.clone();
         self.ws_sender = Some(ws_sender);
+        self.device_id = device_id;
 
         let connect_config = ConnectConfig {
             name: device_name,
@@ -75,8 +78,9 @@ impl SpotifyClient {
         let audio_format = AudioFormat::default();
         let mixer_config = MixerConfig::default();
 
+        let device_id_clone = self.device_id.clone();
         let sink_builder = move || {
-            create_ws_sink(ws_sender_clone.clone(), audio_format)
+            create_ws_sink(ws_sender_clone.clone(), audio_format, device_id_clone)
         };
         let mixer_builder = mixer::find(None).unwrap();
 
@@ -96,10 +100,12 @@ impl SpotifyClient {
 
         // Set up sink event callbacks
         let ws_sender_clone = self.ws_sender.clone();
+        let device_id_clone = self.device_id.clone();
         player.set_sink_event_callback(Some(Box::new(move |event: SinkStatus| {
             if let Some(sender) = &ws_sender_clone {
                 let event_json = serde_json::json!({
                     "type": "sink_event",
+                    "device_id": device_id_clone,
                     "data": {
                         "status": format!("{:?}", event),
                     }
@@ -114,6 +120,7 @@ impl SpotifyClient {
         // Set up player event channel
         let mut event_channel = player.get_player_event_channel();
         let ws_sender_clone = self.ws_sender.clone();
+        let  device_id_clone = self.device_id.clone();
         
         // Spawn a task to handle player events
         let player_event_task = tokio::spawn(async move {
@@ -121,6 +128,7 @@ impl SpotifyClient {
                 if let Some(sender) = &ws_sender_clone {
                     let event_json = serde_json::json!({
                         "type": "player_event",
+                        "device_id": device_id_clone,
                         "data": {
                             "event_type": format!("{:?}", event),
                             "details": match &event {

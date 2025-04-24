@@ -12,7 +12,7 @@ use uuid::Uuid;
 use warp::ws::{Message, WebSocket};
 use warp::Filter;
 
-const PROTOCOL_VERSION: &str = "0.1.0";
+const PROTOCOL_VERSION: &str = "0.1.1";
 
 type Clients = Arc<Mutex<HashMap<String, Client>>>;
 pub type WsResult<T> = std::result::Result<T, warp::Error>;
@@ -154,6 +154,7 @@ impl SpotifyServer {
                                     &token,
                                     device_name.unwrap_or_else(|| format!("Blockyspot {device_id}")),
                                     tx.clone(),
+                                    device_id.clone()
                                 )
                                 .await
                             {
