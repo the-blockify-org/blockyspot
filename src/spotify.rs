@@ -1,5 +1,5 @@
 use anyhow::Result;
-use librespot::connect::{ConnectConfig, LoadRequest, LoadRequestOptions, Spirc};
+use librespot::connect::{ConnectConfig, Spirc};
 use librespot::core::authentication::Credentials;
 use librespot::core::cache::Cache;
 use librespot::core::config::SessionConfig;
