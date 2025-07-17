@@ -33,18 +33,52 @@ cargo build --release
 cargo run --release
 ```
 
+By default, the server runs on port 8888. You can specify a custom port using the `-p` or `--port` flag:
+
+```bash
+# Run on port 9000
+cargo run --release -- --port 9000
+
+# Or using the short form
+cargo run --release -- -p 9000
+```
+
 2. Run the test client:
 ```bash
 python test_client.py
 ```
 
+## Command Line Options
+
+The server supports the following command-line arguments:
+
+- `-p, --port <PORT>`: Port to run the WebSocket server on (default: 8888)
+- `-h, --help`: Show help information
+- `-V, --version`: Show version information
+
+### Examples
+
+```bash
+# Start server on default port (8888)
+./blockyspot
+
+# Start server on port 3000
+./blockyspot --port 3000
+
+# Start server on port 9999 using short form
+./blockyspot -p 9999
+
+# Show help
+./blockyspot --help
+```
+
 ## WebSocket Protocol
 
-The server operates on WebSocket protocol (port 8888). When a client connects to `ws://localhost:8888/ws`, a connection is created where the client can execute commands like `CreateDevice` to start using the Spotify Connect device or commands like `Load` to start interacting with an specific device.
+The server operates on WebSocket protocol (default port 8888, configurable via command line). When a client connects to `ws://localhost:<port>/ws`, a connection is created where the client can execute commands like `CreateDevice` to start using the Spotify Connect device or commands like `Load` to start interacting with an specific device.
 
 ### Connection Flow
 
-1. Client connects to `ws://localhost:8888/ws`
+1. Client connects to `ws://localhost:<port>/ws` (default port is 8888)
 2. Server responds with a success or error message. In case of success, providing the protocol version.
 ```json
 {
