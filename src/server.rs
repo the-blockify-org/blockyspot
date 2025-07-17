@@ -4,7 +4,7 @@ use crate::command_manager::CommandManager;
 use futures::{FutureExt, StreamExt};
 use log::{error, info};
 use std::collections::HashMap;
-use std::convert::Infallible;
+
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
 use tokio_stream::wrappers::UnboundedReceiverStream;

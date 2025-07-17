@@ -89,7 +89,7 @@ impl SpotifyClient {
         let credentials = Credentials::with_access_token(token);
 
         let session = Session::new(session_config, Some(cache));
-        let mixer = mixer_builder(mixer_config);
+        let mixer = mixer_builder(mixer_config)?;
 
         let player = Player::new(
             player_config,
@@ -184,7 +184,7 @@ impl SpotifyClient {
             session.clone(),
             credentials,
             player.clone(),
-            mixer,
+            mixer.clone(),
         )
         .await?;
 
