@@ -41,7 +41,7 @@ impl CommandHandler for ShuffleCommandHandler {
                     format!("Shuffle {}", if *state { "enabled" } else { "disabled" }),
                     None,
                 ),
-                Err(e) => CommandResponse::error(format!("Failed to set shuffle: {}", e)),
+                Err(e) => CommandResponse::error(format!("Failed to set shuffle: {e}")),
             }
         } else {
             CommandResponse::error("Invalid shuffle command")
@@ -58,7 +58,7 @@ impl CommandHandler for RepeatCommandHandler {
                     format!("Repeat {}", if *state { "enabled" } else { "disabled" }),
                     None,
                 ),
-                Err(e) => CommandResponse::error(format!("Failed to set repeat: {}", e)),
+                Err(e) => CommandResponse::error(format!("Failed to set repeat: {e}")),
             }
         } else {
             CommandResponse::error("Invalid repeat command")
@@ -78,7 +78,7 @@ impl CommandHandler for RepeatTrackCommandHandler {
                     ),
                     None,
                 ),
-                Err(e) => CommandResponse::error(format!("Failed to set track repeat: {}", e)),
+                Err(e) => CommandResponse::error(format!("Failed to set track repeat: {e}")),
             }
         } else {
             CommandResponse::error("Invalid repeat track command")
@@ -92,7 +92,7 @@ impl CommandHandler for DisconnectCommandHandler {
         if let Command::Disconnect { pause } = command {
             match client.disconnect(*pause) {
                 Ok(()) => CommandResponse::success("Device disconnected", None),
-                Err(e) => CommandResponse::error(format!("Failed to disconnect: {}", e)),
+                Err(e) => CommandResponse::error(format!("Failed to disconnect: {e}")),
             }
         } else {
             CommandResponse::error("Invalid disconnect command")
@@ -106,7 +106,7 @@ impl CommandHandler for SetPositionCommandHandler {
         if let Command::SetPosition(position) = command {
             match client.set_position_ms(*position) {
                 Ok(()) => CommandResponse::success("Position updated", None),
-                Err(e) => CommandResponse::error(format!("Failed to set position: {}", e)),
+                Err(e) => CommandResponse::error(format!("Failed to set position: {e}")),
             }
         } else {
             CommandResponse::error("Invalid set position command")
@@ -120,7 +120,7 @@ impl CommandHandler for SetVolumeCommandHandler {
         if let Command::SetVolume(volume) = command {
             match client.set_volume(*volume) {
                 Ok(()) => CommandResponse::success("Volume updated", None),
-                Err(e) => CommandResponse::error(format!("Failed to set volume: {}", e)),
+                Err(e) => CommandResponse::error(format!("Failed to set volume: {e}")),
             }
         } else {
             CommandResponse::error("Invalid set volume command")

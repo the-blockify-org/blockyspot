@@ -119,7 +119,7 @@ impl Command {
                         )
                     }
                     "Activate" => Command::Activate,
-                    _ => return Err(format!("Unknown command type: {}", cmd_type)),
+                    _ => return Err(format!("Unknown command type: {cmd_type}")),
                 };
 
                 let device_id = msg

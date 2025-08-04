@@ -69,7 +69,7 @@ impl SpotifyServer {
         let rx_stream = UnboundedReceiverStream::new(rx);
         tokio::task::spawn(rx_stream.forward(ws_sender).map(|result| {
             if let Err(e) = result {
-                error!("Error sending websocket msg: {}", e);
+                error!("Error sending websocket msg: {e}");
             }
         }));
 
@@ -82,7 +82,7 @@ impl SpotifyServer {
 
         if let Ok(response_json) = serde_json::to_string(&connection_response) {
             if let Err(e) = tx.send(Ok(Message::text(response_json))) {
-                error!("Error sending initial connection response: {}", e);
+                error!("Error sending initial connection response: {e}");
                 return;
             }
         }
@@ -91,7 +91,7 @@ impl SpotifyServer {
             let msg = match result {
                 Ok(msg) => msg,
                 Err(e) => {
-                    error!("Error receiving ws message: {}", e);
+                    error!("Error receiving ws message: {e}");
                     break;
                 }
             };
@@ -101,7 +101,7 @@ impl SpotifyServer {
                     .process_ws_message(text, &tx, connection_state.clone())
                     .await
                 {
-                    error!("Error processing message: {}", e);
+                    error!("Error processing message: {e}");
                     break;
                 }
             }
@@ -119,7 +119,7 @@ impl SpotifyServer {
         let command_message: CommandMessage = match serde_json::from_str(text) {
             Ok(msg) => msg,
             Err(e) => {
-                let error_response = CommandResponse::error(format!("Invalid JSON format: {}", e));
+                let error_response = CommandResponse::error(format!("Invalid JSON format: {e}"));
                 let response_json = serde_json::to_string(&error_response)?;
                 tx.send(Ok(Message::text(response_json)))?;
                 return Ok(());
@@ -161,7 +161,7 @@ impl SpotifyServer {
                         }
                     }
                 },
-                Err(e) => CommandResponse::error(format!("Invalid command: {}", e)),
+                Err(e) => CommandResponse::error(format!("Invalid command: {e}")),
             }
         };
 
