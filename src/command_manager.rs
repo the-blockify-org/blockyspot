@@ -1,5 +1,5 @@
-use crate::spotify::SpotifyClient;
 use crate::commands::{Command, CommandResponse};
+use crate::spotify::SpotifyClient;
 
 pub trait CommandHandler {
     fn handle(client: &SpotifyClient, command: &Command) -> CommandResponse;
@@ -17,7 +17,9 @@ macro_rules! impl_simple_handler {
             fn handle(client: &SpotifyClient, _command: &Command) -> CommandResponse {
                 match client.$method() {
                     Ok(()) => CommandResponse::success($success_msg, None),
-                    Err(e) => CommandResponse::error(format!("Failed to {}: {}", stringify!($method), e)),
+                    Err(e) => {
+                        CommandResponse::error(format!("Failed to {}: {}", stringify!($method), e))
+                    }
                 }
             }
         }
@@ -40,7 +42,10 @@ impl CommandHandler for ShuffleCommandHandler {
     fn handle(client: &SpotifyClient, command: &Command) -> CommandResponse {
         if let Command::Shuffle(state) = command {
             match client.shuffle(*state) {
-                Ok(()) => CommandResponse::success(format!("Shuffle {}", if *state { "enabled" } else { "disabled" }), None),
+                Ok(()) => CommandResponse::success(
+                    format!("Shuffle {}", if *state { "enabled" } else { "disabled" }),
+                    None,
+                ),
                 Err(e) => CommandResponse::error(format!("Failed to set shuffle: {}", e)),
             }
         } else {
@@ -54,7 +59,10 @@ impl CommandHandler for RepeatCommandHandler {
     fn handle(client: &SpotifyClient, command: &Command) -> CommandResponse {
         if let Command::Repeat(state) = command {
             match client.repeat(*state) {
-                Ok(()) => CommandResponse::success(format!("Repeat {}", if *state { "enabled" } else { "disabled" }), None),
+                Ok(()) => CommandResponse::success(
+                    format!("Repeat {}", if *state { "enabled" } else { "disabled" }),
+                    None,
+                ),
                 Err(e) => CommandResponse::error(format!("Failed to set repeat: {}", e)),
             }
         } else {
@@ -68,7 +76,13 @@ impl CommandHandler for RepeatTrackCommandHandler {
     fn handle(client: &SpotifyClient, command: &Command) -> CommandResponse {
         if let Command::RepeatTrack(state) = command {
             match client.repeat_track(*state) {
-                Ok(()) => CommandResponse::success(format!("Track repeat {}", if *state { "enabled" } else { "disabled" }), None),
+                Ok(()) => CommandResponse::success(
+                    format!(
+                        "Track repeat {}",
+                        if *state { "enabled" } else { "disabled" }
+                    ),
+                    None,
+                ),
                 Err(e) => CommandResponse::error(format!("Failed to set track repeat: {}", e)),
             }
         } else {
@@ -143,7 +157,9 @@ impl CommandManager {
             Command::SetPosition(_) => SetPositionCommandHandler::handle(client, &command),
             Command::SetVolume(_) => SetVolumeCommandHandler::handle(client, &command),
             Command::Activate => ActivateCommandHandler::handle(client, &command),
-            Command::CreateDevice { .. } => CommandResponse::error("CreateDevice command should be handled by the server"),
+            Command::CreateDevice { .. } => {
+                CommandResponse::error("CreateDevice command should be handled by the server")
+            }
         }
     }
-} 
+}

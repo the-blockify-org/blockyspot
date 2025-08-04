@@ -1,3 +1,5 @@
+use crate::server::WsResult;
+use crate::ws_sink::create_ws_sink;
 use anyhow::Result;
 use librespot::connect::{ConnectConfig, Spirc};
 use librespot::core::authentication::Credentials;
@@ -9,16 +11,14 @@ use librespot::playback::{
     mixer,
     mixer::MixerConfig,
     player::Player,
-    player::SinkStatus,
     player::PlayerEvent,
+    player::SinkStatus,
 };
+use serde_json;
 use std::sync::Arc;
 use tokio::sync::mpsc;
-use warp::ws::Message;
-use crate::server::WsResult;
-use serde_json;
 use tokio::task;
-use crate::ws_sink::create_ws_sink;
+use warp::ws::Message;
 
 const CACHE: &str = ".cache";
 const CACHE_FILES: &str = ".cache/files";
@@ -79,9 +79,8 @@ impl SpotifyClient {
         let mixer_config = MixerConfig::default();
 
         let device_id_clone = self.device_id.clone();
-        let sink_builder = move || {
-            create_ws_sink(ws_sender_clone.clone(), audio_format, device_id_clone)
-        };
+        let sink_builder =
+            move || create_ws_sink(ws_sender_clone.clone(), audio_format, device_id_clone);
         let mixer_builder = mixer::find(None).unwrap();
 
         let cache = Cache::new(Some(CACHE), Some(CACHE), Some(CACHE_FILES), None)?;
@@ -110,7 +109,7 @@ impl SpotifyClient {
                         "status": format!("{:?}", event),
                     }
                 });
-                
+
                 if let Ok(msg) = serde_json::to_string(&event_json) {
                     let _ = sender.send(Ok(Message::text(msg)));
                 }
@@ -120,8 +119,8 @@ impl SpotifyClient {
         // Set up player event channel
         let mut event_channel = player.get_player_event_channel();
         let ws_sender_clone = self.ws_sender.clone();
-        let  device_id_clone = self.device_id.clone();
-        
+        let device_id_clone = self.device_id.clone();
+
         // Spawn a task to handle player events
         let player_event_task = tokio::spawn(async move {
             while let Some(event) = event_channel.recv().await {
