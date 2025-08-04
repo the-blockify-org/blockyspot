@@ -99,7 +99,7 @@ jobs:
     - name: Install cargo-audit
       run: cargo install cargo-audit
     - name: Run security audit
-      # RUSTSEC-2023-0071 Don't seem to affect Librespot
+      # RUSTSEC-2023-0071 Doesn't seem to affect Librespot
       # I still wrote an issue on their repo to clarify.
       # If Librespot ever acts as a server or decrypts
       # attacker-supplied ciphertext, it could be exploitable,
