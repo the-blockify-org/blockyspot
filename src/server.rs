@@ -74,7 +74,7 @@ impl SpotifyServer {
         }));
 
         let connection_state = Arc::new(Mutex::new(ConnectionState::new()));
-        
+
         let connection_response = ConnectionResponse {
             status: "Connected to server".to_string(),
             protocol_version: PROTOCOL_VERSION.to_string(),

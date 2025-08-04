@@ -93,7 +93,9 @@ impl WebSocketSink {
 
         if let Ok(msg) = serde_json::to_string(&audio_msg) {
             if self.sender.send(Ok(Message::text(msg))).is_err() {
-                return Err(SinkError::NotConnected("Failed to send audio data to WebSocket clients".to_string()));
+                return Err(SinkError::NotConnected(
+                    "Failed to send audio data to WebSocket clients".to_string(),
+                ));
             }
         }
 
@@ -187,7 +189,9 @@ impl Sink for WebSocketSink {
 
                 if let Ok(msg) = serde_json::to_string(&audio_msg) {
                     if self.sender.send(Ok(Message::text(msg))).is_err() {
-                        return Err(SinkError::NotConnected("Failed to send audio data to WebSocket clients".to_string()));
+                        return Err(SinkError::NotConnected(
+                            "Failed to send audio data to WebSocket clients".to_string(),
+                        ));
                     }
                 }
             }
