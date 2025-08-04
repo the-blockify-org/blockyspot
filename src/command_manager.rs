@@ -5,11 +5,6 @@ pub trait CommandHandler {
     fn handle(client: &SpotifyClient, command: &Command) -> CommandResponse;
 }
 
-#[derive(Debug)]
-pub struct CommandArgs {
-    pub command: Command,
-}
-
 macro_rules! impl_simple_handler {
     ($name:ident, $method:ident, $success_msg:expr) => {
         pub struct $name;

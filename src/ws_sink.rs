@@ -34,10 +34,6 @@ impl Open for WebSocketSink {
 }
 
 impl WebSocketSink {
-    pub fn set_sender(&mut self, sender: mpsc::UnboundedSender<WsResult<Message>>) {
-        self.sender = sender;
-    }
-    
     pub fn with_sender(
         sender: mpsc::UnboundedSender<WsResult<Message>>,
         format: AudioFormat,
@@ -96,7 +92,7 @@ impl WebSocketSink {
         });
 
         if let Ok(msg) = serde_json::to_string(&audio_msg) {
-            if let Err(_) = self.sender.send(Ok(Message::text(msg))) {
+            if self.sender.send(Ok(Message::text(msg))).is_err() {
                 return Err(SinkError::NotConnected("Failed to send audio data to WebSocket clients".to_string()));
             }
         }
@@ -188,7 +184,7 @@ impl Sink for WebSocketSink {
                 });
                 
                 if let Ok(msg) = serde_json::to_string(&audio_msg) {
-                    if let Err(_) = self.sender.send(Ok(Message::text(msg))) {
+                    if self.sender.send(Ok(Message::text(msg))).is_err() {
                         return Err(SinkError::NotConnected("Failed to send audio data to WebSocket clients".to_string()));
                     }
                 }

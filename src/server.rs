@@ -14,7 +14,6 @@ use warp::Filter;
 
 const PROTOCOL_VERSION: &str = "0.1.1";
 
-type Clients = Arc<Mutex<HashMap<String, Client>>>;
 pub type WsResult<T> = std::result::Result<T, warp::Error>;
 
 #[derive(Debug, serde::Serialize)]
@@ -23,30 +22,14 @@ struct ConnectionResponse {
     protocol_version: String,
 }
 
-struct Client {
-    spotify: Option<SpotifyClient>,
-    sender: mpsc::UnboundedSender<WsResult<Message>>,
-}
-
-impl Client {
-    fn new(sender: mpsc::UnboundedSender<WsResult<Message>>) -> Self {
-        Self {
-            spotify: None,
-            sender,
-        }
-    }
-}
-
 struct ConnectionState {
     devices: HashMap<String, SpotifyClient>,
-    sender: mpsc::UnboundedSender<WsResult<Message>>,
 }
 
 impl ConnectionState {
-    fn new(sender: mpsc::UnboundedSender<WsResult<Message>>) -> Self {
+    fn new() -> Self {
         Self {
             devices: HashMap::new(),
-            sender,
         }
     }
 }
@@ -90,7 +73,7 @@ impl SpotifyServer {
             }
         }));
 
-        let connection_state = Arc::new(Mutex::new(ConnectionState::new(tx.clone())));
+        let connection_state = Arc::new(Mutex::new(ConnectionState::new()));
         
         let connection_response = ConnectionResponse {
             status: "Connected to server".to_string(),
