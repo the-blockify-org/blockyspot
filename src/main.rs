@@ -2,8 +2,8 @@ use anyhow::Result;
 use clap::Parser;
 use log::info;
 
-mod commands;
 mod command_manager;
+mod commands;
 mod server;
 mod spotify;
 mod ws_sink;
@@ -23,9 +23,9 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<()> {
     env_logger::init();
-    
+
     let args = Args::parse();
-    
+
     info!("Starting BlockySpot...");
 
     let server = SpotifyServer::new();
