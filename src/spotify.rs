@@ -17,9 +17,7 @@ use librespot::playback::{
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use warp::ws::Message;
-use crate::server::WsResult;
 use tokio::task;
-use warp::ws::Message;
 
 const CACHE: &str = ".cache";
 const CACHE_FILES: &str = ".cache/files";
