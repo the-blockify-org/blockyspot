@@ -82,6 +82,14 @@ jobs:
     - name: Run tests
       run: cargo test --verbose
 
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-${{ runner.os }}-${{ matrix.rust }}
+        path: |
+          target/release
+          target/debug
+
   lint:
     name: Lint (fmt & clippy)
     runs-on: ubuntu-latest
