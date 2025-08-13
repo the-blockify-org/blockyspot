@@ -81,13 +81,19 @@ jobs:
     
     - name: Run tests
       run: cargo test --verbose
-    
-    - name: Check formatting (stable only)
-      if: matrix.rust == 'stable'
+
+  lint:
+    name: Lint (fmt & clippy)
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: stable
+        components: rustfmt, clippy
+    - name: Check formatting
       run: cargo fmt --all -- --check
-    
-    - name: Run clippy (stable only)
-      if: matrix.rust == 'stable'
+    - name: Run clippy
       run: cargo clippy --all-targets --all-features -- -D warnings
 
   security:
