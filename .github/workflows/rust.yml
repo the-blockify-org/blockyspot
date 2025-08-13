@@ -97,8 +97,7 @@ jobs:
       with:
         name: build-${{ runner.os }}-${{ matrix.rust }}
         path: |
-          target/release
-          target/debug
+          target/release/blockyspot*
 
   lint:
     name: Lint (fmt & clippy)
